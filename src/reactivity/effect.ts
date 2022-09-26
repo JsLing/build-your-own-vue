@@ -2,8 +2,8 @@ import { extend } from "../shared"
 
 class ReactiveEffect {
   private _fn: any
-  deps = []
   public scheduler: Function | undefined
+  deps = []
   active = true
   onStop?: () => void
 
