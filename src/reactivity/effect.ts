@@ -1,10 +1,13 @@
-import { extend } from "../shared"
+import { extend } from '../shared'
+
+let activeEffect: any
+let shouldTrack: any
 
 class ReactiveEffect {
   private _fn: any
   public scheduler: Function | undefined
   deps = []
-  active = true
+  active = true // stop 状态
   onStop?: () => void
 
   constructor(fn: any, scheduler: Function) {
@@ -13,8 +16,18 @@ class ReactiveEffect {
   }
 
   run() {
+    if (!this.active) {
+      return this._fn()
+    }
+
+    shouldTrack = true
     activeEffect = this as any
-    return this._fn()
+
+    const result = this._fn()
+
+    shouldTrack = false
+
+    return result
   }
 
   stop() {
@@ -32,10 +45,13 @@ function clearupEffect(effect: any) {
   effect.deps.forEach((dep: any) => {
     dep.delete(effect)
   })
+  effect.deps.length = 0
 }
 
 const targetMap = new Map()
 export function track(target: any, key: any) {
+  if (!isTracking()) return
+
   // target -> key -> dep
   let depMap = targetMap.get(target)
   if (!depMap) {
@@ -49,9 +65,14 @@ export function track(target: any, key: any) {
     depMap.set(key, dep)
   }
 
-  if(!activeEffect) return
+  if (dep.has(activeEffect)) return
+
   dep.add(activeEffect)
   activeEffect.deps.push(dep)
+}
+
+function isTracking() {
+  return shouldTrack && activeEffect !== undefined
 }
 
 export function trigger(target: any, key: any) {
@@ -67,7 +88,6 @@ export function trigger(target: any, key: any) {
   }
 }
 
-let activeEffect: any
 export function effect(fn: any, options: any = {}) {
   const _effect = new ReactiveEffect(fn, options.scheduler)
   extend(_effect, options)
